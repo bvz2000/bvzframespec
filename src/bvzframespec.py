@@ -50,7 +50,8 @@ class Framespec(object):
                  pattern=None,
                  prefix_group_numbers=None,
                  frame_group_num=None,
-                 postfix_group_numbers=None):
+                 postfix_group_numbers=None,
+                 two_pass_sorting=True):
         """
         Set up some basic object level variables.
 
@@ -96,6 +97,11 @@ class Framespec(object):
         :param postfix_group_numbers:
                 A list of regex capture groups that, when combined, equals the postfix. If None, then the default list
                 of [2] (meaning the third capture group) will be used. Defaults to None.
+        :param two_pass_sorting:
+                If True, then the conversion of a list of files to a single string uses two passes to make for slightly
+                more logical groupings of files. This is a relatively fast second pass (the number of steps needed is
+                based on the number of groupings, not the number of frames). But if this additional computation is not
+                desired, it may be turned off by setting this argument to False. Defaults to True.
 
         :return:
                 Nothing.
@@ -122,6 +128,8 @@ class Framespec(object):
             self.postfix_group_numbers = [2]
         else:
             self.postfix_group_numbers = postfix_group_numbers
+
+        self.two_pass_sorting = two_pass_sorting
 
         self._files = list()
 
@@ -391,7 +399,7 @@ class Framespec(object):
             frame_nums.append(int(result.groups()[self.frame_group_num]))
 
         frame_nums.sort()
-        frame_nums = self._group_list_by_step_size(frame_nums)
+        frame_nums = self._group_list_by_step_size(frame_nums, self.two_pass_sorting)
 
         self._file_d = file_d
         self._prefix_str = prefix_str
