@@ -3,7 +3,6 @@
 import os
 import re
 
-
 # ======================================================================================================================
 import sys
 
@@ -107,6 +106,13 @@ class Framespec(object):
                 Nothing.
         """
 
+        assert type(step_delimiter) is str
+        assert pattern is None or type(pattern) is str
+        assert prefix_group_numbers is None or type(prefix_group_numbers) is list
+        assert frame_group_num is None or type(frame_group_num) is int
+        assert postfix_group_numbers is None or type(postfix_group_numbers) is list
+        assert type(two_pass_sorting) is bool
+
         self.step_delimiter = step_delimiter
 
         if pattern is None:
@@ -200,6 +206,12 @@ class Framespec(object):
                     1-3,5-9x2,100-120x10,192
         """
 
+        assert type(grouped_list) is list
+        for item in grouped_list:
+            assert type(item) is list
+            for sub_item in item:
+                assert type(sub_item) is int
+
         for i, chunk in enumerate(grouped_list):
             if len(chunk) == 1:
                 grouped_list[i] = str(chunk[0])
@@ -242,6 +254,11 @@ class Framespec(object):
                 step size.
         """
 
+        assert type(integers) is list
+        for item in integers:
+            assert type(item) is int
+        assert type(post_cleanup) is bool
+
         if len(integers) == 1:
             return [[integers[0]]]
 
@@ -259,9 +276,9 @@ class Framespec(object):
                 start_new_sub_list = False
                 continue
 
-            back_diff = integer - integers[i-1]
+            back_diff = integer - integers[i - 1]
             try:
-                forward_diff = integers[i+1] - integer
+                forward_diff = integers[i + 1] - integer
             except IndexError:
                 forward_diff = None
 
@@ -273,7 +290,7 @@ class Framespec(object):
                     start_new_sub_list = True
                     continue
             else:
-                back_back_diff = integers[i-1] - integers[i-2]
+                back_back_diff = integers[i - 1] - integers[i - 2]
                 if back_back_diff == back_diff:
                     curr_sub_list.append(integer)
                 elif len(curr_sub_list) == 1:
@@ -313,7 +330,7 @@ class Framespec(object):
                         if curr_to_next_diff == next_chunk_step_size:
                             value_to_move = curr_chunk[-1]
                             seq_list[i] = seq_list[i][:-1]
-                            seq_list[i+1] = [value_to_move] + seq_list[i+1]
+                            seq_list[i + 1] = [value_to_move] + seq_list[i + 1]
 
             # DEBUG
             print(f"post-cleanup: {seq_list}")
@@ -351,6 +368,8 @@ class Framespec(object):
         :return:
                 A string representing the entire list of files as a single entity.
         """
+
+        assert type(files) is list
 
         if not files:
             return
@@ -499,7 +518,6 @@ def build_random_list(start,
 
 # ----------------------------------------------------------------------------------------------------------------------
 def main():
-
     # Below are some pre-defined lists. Add to this list if you want more pre-defined tests.
     test_lists = list()
     test_lists.append([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
@@ -542,6 +560,6 @@ def main():
 
 # ----------------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-
     import random
+
     main()
