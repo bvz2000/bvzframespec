@@ -305,7 +305,7 @@ class Framespec(object):
         if curr_sub_list:
             seq_list.append(curr_sub_list)
 
-        print(f" pre-cleanup: {seq_list}")
+        # print(f" pre-cleanup: {seq_list}")
 
         if post_cleanup and len(seq_list) > 1:
 
@@ -333,7 +333,7 @@ class Framespec(object):
                             seq_list[i + 1] = [value_to_move] + seq_list[i + 1]
 
             # DEBUG
-            print(f"post-cleanup: {seq_list}")
+            # print(f"post-cleanup: {seq_list}")
 
         return seq_list
 
