@@ -1,12 +1,8 @@
-#! /usr/bin/env python3
-
 import os
 import re
 
+
 # ======================================================================================================================
-import sys
-
-
 class Framespec(object):
     """
     A class that manages the framespec features of a group of files.
@@ -28,6 +24,9 @@ class Framespec(object):
 
         1-10
 
+    And a condensed file string of:
+        file.1-10.ext
+
     Or for a more complicated example, give a list of files like:
 
         file.1.ext
@@ -41,73 +40,105 @@ class Framespec(object):
     Would be associated with a framespec string:
 
         1,2-6x2,10-30x10
+
+    And a condensed file string of:
+        file.1,2-6x2,10-30x10.ext
+
+    It works in both directions.
+
+    A condensed file string of:
+
+        file.1,2-6x2,10-30x10.ext
+
+    Would be associated with a list of files like:
+
+        file.1.ext
+        file.2.ext
+        file.4.ext
+        file.6.ext
+        file.10.ext
+        file.20.ext
+        file.30.ext
     """
 
     # ------------------------------------------------------------------------------------------------------------------
     def __init__(self,
                  step_delimiter="x",
-                 pattern=None,
+                 frame_number_pattern=None,
                  prefix_group_numbers=None,
                  frame_group_num=None,
                  postfix_group_numbers=None,
-                 two_pass_sorting=True):
+                 two_pass_sorting=True,
+                 framespec_pattern=None,
+                 padding=None):
         """
         Set up some basic object level variables.
 
         :param step_delimiter:
-                The string that is used to identify the step size. For example if the character 'x' is used, then you
-                might see a framespec that looks like this: 1-10x2. If omitted, defaults to 'x'.
-        :param pattern:
-                By default, the frame number is assumed to be the last group of numbers in a file name. If there are
-                more than one set of numbers in file name, then only the last set is used as a frame number. Anything
-                before the frame number is considered the prefix. Anything after the frame number is considered the
-                postfix.
+            The string that is used to identify the step size. For example if the character 'x' is used, then you might
+            see a framespec that looks like this: 1-10x2. If omitted, defaults to 'x'.
+        :param frame_number_pattern:
+            The regex pattern that is used to extract frame numbers from the file name. If None, then a default regex
+            pattern is used:
 
-                Examples - In all of the following examples the frame number is 100, the prefix is the portion before
-                the frame number, and the postfix is the portion after the frame number:
+            (.*?)(\d+)(?!.*\d)(.*)
 
-                    filename.100.tif      <- prefix = "filename.", frame_no = "100", postfix = ".tif"
-                    filename.100.         <- prefix = "filename.", frame_no = "100", postfix = "."
-                    filename.100          <- prefix = "filename.", frame_no = "100", postfix = ""
-                    filename100           <- prefix = "filename", frame_no = "100", postfix = ""
-                    filename2.100.tif     <- prefix = "filename2.", frame_no = "100", postfix = ".tif"
-                    filename2.1.100       <- prefix = "filename2.1.", frame_no = "100", postfix = ""
-                    filename2.100         <- prefix = "filename2.", frame_no = "100", postfix = ""
-                    filename2plus100.tif  <- prefix = "filename2plus", frame_no = "100", postfix = ".tif"
-                    filename2plus100.     <- prefix = "filename2plus", frame_no = "100", postfix = "."
-                    filename2plus100      <- prefix = "filename2plus", frame_no = "100", postfix = ""
-                    100.tif               <- prefix = "", frame_no = "100", postfix = ".tif"
-                    100.                  <- prefix = "", frame_no = "100", postfix = "."
-                    100                   <- prefix = "", frame_no = "100", postfix = ""
+            Defaults to None.
 
-                By default, the regex pattern used to extract the prefix, frame number, and postfix is:
+            If the default regex pattern is used, the frame number is assumed to be the last group of numbers in a file
+            name. If there are more than one set of numbers in file name, then only the last set is used as a frame
+            number. Anything before the frame number is considered the prefix. Anything after the frame number is
+            considered the postfix.
 
-                    (.*?)(\d+)(?!.*\d)(.*)
+            Examples - In all of the following examples the frame number is 100, the prefix is the portion before the
+            frame number, and the postfix is the portion after the frame number:
 
-                However, if the file names do not conform to the assumptions above, a regex pattern may be supplied here
-                that defines the correct way to extract the prefix, frame number, and postfix. If None, then the default
-                regex above will be used. Defaults to None.
+                filename.100.tif      <- prefix = "filename.", frame_no = "100", postfix = ".tif"
+                filename.100.         <- prefix = "filename.", frame_no = "100", postfix = "."
+                filename.100          <- prefix = "filename.", frame_no = "100", postfix = ""
+                filename100           <- prefix = "filename", frame_no = "100", postfix = ""
+                filename2.100.tif     <- prefix = "filename2.", frame_no = "100", postfix = ".tif"
+                filename2.1.100       <- prefix = "filename2.1.", frame_no = "100", postfix = ""
+                filename2.100         <- prefix = "filename2.", frame_no = "100", postfix = ""
+                filename2plus100.tif  <- prefix = "filename2plus", frame_no = "100", postfix = ".tif"
+                filename2plus100.     <- prefix = "filename2plus", frame_no = "100", postfix = "."
+                filename2plus100      <- prefix = "filename2plus", frame_no = "100", postfix = ""
+                100.tif               <- prefix = "", frame_no = "100", postfix = ".tif"
+                100.                  <- prefix = "", frame_no = "100", postfix = "."
+                100                   <- prefix = "", frame_no = "100", postfix = ""
+
         :param prefix_group_numbers:
-                A list of regex capture groups that, when combined, equals the prefix. If None, then the default list of
-                [0] (meaning the first capture group) will be used. Defaults to None.
+            A list of regex capture group numbers that, when combined, equals the prefix. If None, then the default list
+            of [0] (meaning the first capture group) will be used. Defaults to None.
         :param frame_group_num:
-                The regex capture group that contains the frame number. If None, defaults to 1 (meaning the second
-                capture group).
+            The regex capture group number that contains the frame number. If None, defaults to 1 (meaning the second
+            capture group). Defaults to None.
         :param postfix_group_numbers:
-                A list of regex capture groups that, when combined, equals the postfix. If None, then the default list
-                of [2] (meaning the third capture group) will be used. Defaults to None.
+            A list of regex capture group numbers that, when combined, equals the postfix. If None, then the default
+            list of [2] (meaning the third capture group) will be used. Defaults to None.
         :param two_pass_sorting:
-                If True, then the conversion of a list of files to a single string uses two passes to make for slightly
-                more logical groupings of files. This is a relatively fast second pass (the number of steps needed is
-                based on the number of groupings, not the number of frames). But if this additional computation is not
-                desired, it may be turned off by setting this argument to False. Defaults to True.
+            If True, then the conversion of a list of files to a single string uses two passes to make for slightly more
+            logical groupings of files. This is a relatively fast second pass (the number of steps needed is based on
+            the number of groupings, not the number of frames). But if this additional computation is not desired, it
+            may be turned off by setting this argument to False. Defaults to True.
+        :param framespec_pattern:
+            The pattern used to extract the framespec from a condensed file string. If None, the default pattern is
+            used:
+
+            (?:\d+(?:-\d+)?(?:x\d+)?(?:,)?)+
+
+            Note: The character x above is actually replaced with the step_delimiter. Defaults to None.
+        :param padding:
+            The amount of padding to use when converting the framespec string to a list of frames. If None, then the
+            amount of padding will be based on the longest frame number. If no padding is desired, padding should be set
+            to 0. Defaults to None.
 
         :return:
                 Nothing.
         """
 
         assert type(step_delimiter) is str
-        assert pattern is None or type(pattern) is str
+        assert frame_number_pattern is None or type(frame_number_pattern) is str
         assert prefix_group_numbers is None or type(prefix_group_numbers) is list
         assert frame_group_num is None or type(frame_group_num) is int
         assert postfix_group_numbers is None or type(postfix_group_numbers) is list
@@ -115,10 +146,15 @@ class Framespec(object):
 
         self.step_delimiter = step_delimiter
 
-        if pattern is None:
-            self.pattern = r"(.*?)(\d+)(?!.*\d)(.*)"
+        if frame_number_pattern is None:
+            self.frame_number_pattern = r"(.*?)(\d+)(?!.*\d)(.*)"
         else:
-            self.pattern = pattern
+            self.frame_number_pattern = frame_number_pattern
+
+        if framespec_pattern is None:
+            self.framespec_pattern = r'(?:\d+(?:-\d+)?(?:' + step_delimiter + '\d+)?(?:,)?)+'
+        else:
+            self.framespec_pattern = framespec_pattern
 
         if prefix_group_numbers is None:
             self.prefix_group_numbers = [0]
@@ -135,75 +171,88 @@ class Framespec(object):
         else:
             self.postfix_group_numbers = postfix_group_numbers
 
+        self.padding = padding
+
         self.two_pass_sorting = two_pass_sorting
 
-        self._files = list()
-
-        self._file_d = ""
-        self._prefix_str = ""
-        self._framespec_str = ""
-        self._postfix_str = ""
+        self._files_list = list()
+        self._files_str = ""
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
-    def files(self):
+    def files_list(self) -> list:
         """
         Return the list of files that the framespec refers to. These files do not necessarily have to exist on disk.
 
         :return:
-                A list of file names with paths.
+            A list of file names with paths.
         """
 
-        return self._files
+        self._files_list = self._file_str_to_frame_list(self._files_str)
+        return self._files_list
 
     # ------------------------------------------------------------------------------------------------------------------
-    @files.setter
-    def files(self,
-              files_p):
+    @files_list.setter
+    def files_list(self,
+                   files_p):
         """
-        Property setter for the list of files that the framespec will manage. Adding this list of files automatically
-        converts them to a framespec string.
+        Property setter for the list of files that the framespec will manage.
 
         :param files_p:
-                A list of files that will be condensed into a framespec string.
+            A list of files that will be condensed into a framespec string.
 
         :return:
-                Nothing.
+            Nothing.
         """
 
         assert type(files_p) is list
 
-        self._files = files_p
-        self._convert_file_list_to_framespec_str(files_p)
+        self._files_list = files_p
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
-    def framespec_str(self):
+    def files_str(self) -> str:
         """
         Returns the file list compressed into a single string.
 
         :return:
-                The file list as a single framespec string.
+            The file list as a single framespec string.
         """
 
-        file_n = f"{self._prefix_str}{self._framespec_str}{self._postfix_str}"
-        return os.path.join(self._file_d, file_n)
+        self._files_str = self._frame_list_to_file_str(self._files_list)
+        return self._files_str
+
+    # ------------------------------------------------------------------------------------------------------------------
+    @files_str.setter
+    def files_str(self,
+                  string):
+        """
+        Sets the framespec_str.
+
+        :param string:
+            The string representation of the files including the framespec. For example: /some/files.1-100.exr
+
+        :return:
+            The file list as a single framespec string.
+        """
+
+        self._files_str = string
 
     # ------------------------------------------------------------------------------------------------------------------
     def _convert_grouped_list_into_string(self,
-                                          grouped_list):
+                                          grouped_list) -> str:
         """
         Given a grouped list, return a string that is in the framespec format.
 
         :param grouped_list:
-                A list of integers, grouped into sub-lists by step size. For example:
+            A list of integers, grouped into sub-lists by step size. For example:
 
-                    [[1,2,3], [5, 7, 9], [100, 110, 120], [192]]
+                [[1,2,3], [5, 7, 9], [100, 110, 120], [192]]
 
         :return:
-                A framespec string. For example:
+            A framespec string. For example:
 
-                    1-3,5-9x2,100-120x10,192
+                1-3,5-9x2,100-120x10,192
         """
 
         assert type(grouped_list) is list
@@ -229,7 +278,7 @@ class Framespec(object):
     # ----------------------------------------------------------------------------------------------------------------------
     @staticmethod
     def _group_list_by_step_size(integers,
-                                 post_cleanup=True):
+                                 post_cleanup=True) -> list:
         """
         Given a list of integers, return the same list, but grouped into sub-lists by step size.
 
@@ -240,18 +289,18 @@ class Framespec(object):
             [[1,2,3], [5,7,9], [20,30,40]]
 
         :param integers:
-                A list of integers.
+            A list of integers.
         :param post_cleanup:
-                If True, then a second pass will be made through the resulting groupings to see if perhaps some of the
-                values at the end of a group might not make more sense in the next group. This can fix issues where you
-                have a result that looks like this: [1, 4], [6, 8, 10, 12, 14, 16]. In that example it would make more
-                sense to have the 4 be a part of the following group. If False, this second pass is skipped. Defaults to
-                True. Turning it off may lead to an infinitesimally small speed increase (might make sense for insanely
-                long sequences).
+            If True, then a second pass will be made through the resulting groupings to see if perhaps some of the
+            values at the end of a group might not make more sense in the next group. This can fix issues where you have
+            a result that looks like this: [1, 4], [6, 8, 10, 12, 14, 16]. In that example it would make more sense to
+            have the 4 be a part of the following group. If False, this second pass is skipped. Defaults to True.
+            Turning it off may lead to an infinitesimally small speed increase (might make sense for insanely long
+            sequences).
 
         :return:
-                A list of lists, where each sub-list is a sequence of numbers that differ from each other by the same
-                step size.
+            A list of lists, where each sub-list is a sequence of numbers that differ from each other by the same step
+            size.
         """
 
         assert type(integers) is list
@@ -305,8 +354,6 @@ class Framespec(object):
         if curr_sub_list:
             seq_list.append(curr_sub_list)
 
-        # print(f" pre-cleanup: {seq_list}")
-
         if post_cleanup and len(seq_list) > 1:
 
             # Look at every chunk except the last one
@@ -332,47 +379,56 @@ class Framespec(object):
                             seq_list[i] = seq_list[i][:-1]
                             seq_list[i + 1] = [value_to_move] + seq_list[i + 1]
 
-            # DEBUG
-            # print(f"post-cleanup: {seq_list}")
-
         return seq_list
 
     # ------------------------------------------------------------------------------------------------------------------
-    def _convert_file_list_to_framespec_str(self,
-                                            files):
+    def _frame_list_to_file_str(self,
+                                files) -> str:
         """
         Given a list of files, extracts the frame numbers.
 
+        For example,given:
+
+            file.1.ext
+            file.3.ext
+            file.5.ext
+            file.22.ext
+
+        return:
+
+            file.1-5x2,22.ext
+
         :param files:
-                A list of file names. May include paths. May not include duplicate frame numbers. If duplicate frame
-                numbers are present, an error is raised. The assumption is that the frame number is the last set of
-                numbers in the file name. The regular expression being used is: (.*?)(\d+)(?!.*\d)(.*)
+            A list of file names. May include paths. May not include duplicate frame numbers. If duplicate frame numbers
+            are present, an error is raised. The assumption is that the frame number is the last set of numbers in the
+            file name. The regular expression being used to extract the frame number is defined when the object is
+            instantiated.
 
-                Examples - In all of the following examples the frame number is 100, the prefix is the portion before
-                the frame number, and the postfix is the portion after the frame number:
+            Examples - In all of the following examples the frame number is 100, the prefix is the portion before the
+            frame number, and the postfix is the portion after the frame number:
 
-                    filename.100.tif      <- prefix = "filename.", frame_no = "100", postfix = ".tif"
-                    filename.100.         <- prefix = "filename.", frame_no = "100", postfix = "."
-                    filename.100          <- prefix = "filename.", frame_no = "100", postfix = ""
-                    filename100           <- prefix = "filename", frame_no = "100", postfix = ""
-                    filename2.100.tif     <- prefix = "filename2.", frame_no = "100", postfix = ".tif"
-                    filename2.1.100       <- prefix = "filename2.1.", frame_no = "100", postfix = ""
-                    filename2.100         <- prefix = "filename2.", frame_no = "100", postfix = ""
-                    filename2plus100.tif  <- prefix = "filename2plus", frame_no = "100", postfix = ".tif"
-                    filename2plus100.     <- prefix = "filename2plus", frame_no = "100", postfix = "."
-                    filename2plus100      <- prefix = "filename2plus", frame_no = "100", postfix = ""
-                    100.tif               <- prefix = "", frame_no = "100", postfix = ".tif"
-                    100.                  <- prefix = "", frame_no = "100", postfix = "."
-                    100                   <- prefix = "", frame_no = "100", postfix = ""
+                filename.100.tif      <- prefix = "filename.", frame_no = "100", postfix = ".tif"
+                filename.100.         <- prefix = "filename.", frame_no = "100", postfix = "."
+                filename.100          <- prefix = "filename.", frame_no = "100", postfix = ""
+                filename100           <- prefix = "filename", frame_no = "100", postfix = ""
+                filename2.100.tif     <- prefix = "filename2.", frame_no = "100", postfix = ".tif"
+                filename2.1.100       <- prefix = "filename2.1.", frame_no = "100", postfix = ""
+                filename2.100         <- prefix = "filename2.", frame_no = "100", postfix = ""
+                filename2plus100.tif  <- prefix = "filename2plus", frame_no = "100", postfix = ".tif"
+                filename2plus100.     <- prefix = "filename2plus", frame_no = "100", postfix = "."
+                filename2plus100      <- prefix = "filename2plus", frame_no = "100", postfix = ""
+                100.tif               <- prefix = "", frame_no = "100", postfix = ".tif"
+                100.                  <- prefix = "", frame_no = "100", postfix = "."
+                100                   <- prefix = "", frame_no = "100", postfix = ""
 
         :return:
-                A string representing the entire list of files as a single entity.
+            A string representing the entire list of files as a single entity.
         """
 
         assert type(files) is list
 
         if not files:
-            return
+            return ""
 
         frame_nums = list()
 
@@ -395,7 +451,7 @@ class Framespec(object):
                     raise ValueError("All files must live in the same directory.")
             previous_file_d = file_d
 
-            result = re.match(self.pattern, file_n)
+            result = re.match(self.frame_number_pattern, file_n)
             if result is None:
                 raise ValueError(f"File {file_n} does not contain a sequence number.")
 
@@ -419,147 +475,103 @@ class Framespec(object):
 
         frame_nums.sort()
         frame_nums = self._group_list_by_step_size(frame_nums, self.two_pass_sorting)
+        framespec_str = self._convert_grouped_list_into_string(frame_nums)
 
-        self._file_d = file_d
-        self._prefix_str = prefix_str
-        self._framespec_str = self._convert_grouped_list_into_string(frame_nums)
-        self._postfix_str = postfix_str
+        return f"{file_d}{prefix_str}{framespec_str}{postfix_str}"
 
+    # ------------------------------------------------------------------------------------------------------------------
+    def _framespec_to_frame_list(self,
+                                 framespec) -> list:
+        """
+        Given a framespec, return a list.
 
-# ======================================================================================================================
-# TESTING
-# ======================================================================================================================
+            For example, given a string like:
+                1-10x2,22-30,42
 
-# ----------------------------------------------------------------------------------------------------------------------
-def process_cmd_line():
-    """
-    A super janky command line interpreter.
+            Return a list of integers like:
+                1,3,5,7,9,22,23,24,25,26,27,28,29,30,42
 
-    :return:
-            A tuple containing the start, end, and max values for the random list generator.
-    """
+        :param framespec:
+            The string that contains the frames in a condensed, framespec format.
 
-    # Super janky command line interface
-    if "-h" in sys.argv:
-        print(f"{sys.argv[0]} [-rand] [-start NN] [-end NN] [-max NN]")
-        print()
-        print("If you don't use any options, the test suite is pre-defined and will run on a fixed")
-        print("set of test sequences.")
-        print()
-        print("Use the optional -rand option to run the tool on a random sequence. To change the")
-        print("parameters of this random sequence, use -start to choose the starting value,")
-        print("-end to chose the ending value, and -max to choose the maximum number of values.")
-        sys.exit(0)
+        :return:
+            A list of integers.
+        """
 
-    max_num_files = 5
-    start = 1
-    end = 7
+        # If there is an illegal character in the framespec, then a programming error has occurred.
+        for char in framespec:
+            assert char in "0123456789-," + self.step_delimiter
 
-    if "-start" in sys.argv:
-        i = sys.argv.index("-start") + 1
-        try:
-            start = int(sys.argv[i])
-        except ValueError:
-            print("start value must be an integer")
+        output = list()
 
-    if "-end" in sys.argv:
-        i = sys.argv.index("-end") + 1
-        try:
-            end = int(sys.argv[i])
-        except ValueError:
-            print("end value must be an integer")
+        chunks = framespec.split(",")
+        for chunk in chunks:
+            if self.step_delimiter in chunk:
+                range_str, step_str = chunk.split(self.step_delimiter)
+            else:
+                range_str = chunk
+                step_str = "1"
+            if "-" in range_str:
+                start_str, end_str = range_str.split("-")
+            else:
+                start_str = end_str = range_str
 
-    if "-max" in sys.argv:
-        i = sys.argv.index("-max") + 1
-        try:
-            max_num_files = int(sys.argv[i])
-        except ValueError:
-            print("max value must be an integer")
+            start = int(start_str)
+            end = int(end_str)
+            step = int(step_str)
 
-    if end - start < max_num_files - 1:
-        print("Error: end - start is less than the maximum number of values.")
-        sys.exit()
+            if start > end:
+                temp = start
+                start = end
+                end = temp
 
-    return start, end, max_num_files
+            if start != end:
+                output.extend(range(start, end + 1, step))
+            else:
+                output.append(start)
 
+        output = list(set(output))
+        output.sort()
 
-# ----------------------------------------------------------------------------------------------------------------------
-def build_random_list(start,
-                      end,
-                      max_values):
-    """
-    Build a random list of numbers between the start and end, consisting of max_values entries.
+        return output
 
-    :param start:
-            The lowest number allowed.
-    :param end:
-            The highest number allowed.
-    :param max_values:
-            The number of values in the list.
+    # --------------------------------------------------------------------------------------------------------------
+    def _file_str_to_frame_list(self,
+                                string) -> list:
+        """
+        Given a string, extract the framespec portion and converts that to a list of files. For example: given
+        /some/files.1-3.exr, this will return:
 
-    :return:
-            A list consisting of "max_values" number of random values, in ascending order.
-    """
+        /some/files.1.exr
+        /some/files.2.exr
+        /some/files.3.exr
 
-    output = list()
+        :param string:
+            The string to convert.
 
-    for i in range(max_values):
-        rand = None
-        counter = 0
-        while rand is None or (rand in output and counter < 1000):
-            counter += 1
-            rand = random.randint(start, end)
-        output.append(rand)
+        :return:
+            A list of expanded files. Does not test whether these files exist on disk or not.
+        """
 
-    output.sort()
+        output = list()
 
-    return output
+        result = re.search(self.framespec_pattern, string)
+        if not result:
+            return [string]
 
+        base = string[:result.span()[0]]
+        ext = string[result.span()[1]:]
+        framespec = string[result.span()[0]:result.span()[1]]
 
-# ----------------------------------------------------------------------------------------------------------------------
-def main():
-    # Below are some pre-defined lists. Add to this list if you want more pre-defined tests.
-    test_lists = list()
-    test_lists.append([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    test_lists.append([1])
-    test_lists.append(([1, 8]))
-    test_lists.append(([1, 8]))
-    test_lists.append([1, 4, 6, 8, 10, 12, 14, 15, 18, 20])
-    test_lists.append([2, 5, 8, 9, 12, 14, 15, 18, 19, 20])
-    test_lists.append([3, 5, 6, 8, 9, 11, 15, 17, 18, 20])
-    test_lists.append([4, 6, 7, 8, 9, 11, 12, 16, 17, 19])
-    test_lists.append([4, 6, 8, 9, 10, 11, 12, 13, 15, 20])
-    test_lists.append([1, 2, 4, 6, 8, 9, 10, 11, 12, 14])
+        frames = self._framespec_to_frame_list(framespec)
 
-    # If a random test is desired, replace the above list with a random list
-    if "-rand" in sys.argv:
-        start, end, max_values = process_cmd_line()
-        test_lists = [build_random_list(start=start, end=end, max_values=max_values)]
-        print(f"Generating a random set of {max_values} values between {start} and {end}.")
+        if self.padding is None:
+            self.padding = len(str(max(frames)))
 
-    # Run each test
-    for test_list in test_lists:
+        for frame in frames:
+            if self.padding == 0:
+                output.append(f"{base}{frame}{ext}")
+            else:
+                output.append(f"{base}{str(frame).rjust(self.padding, '0')}{ext}")
 
-        print(test_list)
-
-        files_list = list()
-        for rand in test_list:
-            files_list.append(f"/some/path/file.{rand}.tif")
-
-        framespec_obj = Framespec()
-
-        try:
-            framespec_obj.files = files_list
-        except ValueError as e:
-            print(e)
-            return
-
-        print(framespec_obj.framespec_str)
-        print("\n\n")
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-if __name__ == "__main__":
-    import random
-
-    main()
+        return output
