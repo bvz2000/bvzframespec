@@ -524,7 +524,7 @@ class Framespec(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     def _split_file_list_into_prefix_and_frames_list_and_ext(self,
-                                                             files):
+                                                             files) -> tuple:
         """
         Given a list of files, return a tuple where the first element is the path, the second element is the prefix
         (everything leading up to the frame numbers), the third element is a list of frame numbers, and the final
@@ -576,7 +576,7 @@ class Framespec(object):
         assert type(files) is list
 
         if not files:
-            return ""
+            return "", "", "", ""
 
         frame_nums = list()
 
@@ -721,7 +721,7 @@ class Framespec(object):
 
     # ------------------------------------------------------------------------------------------------------------------
     def _split_string_into_base_framespec_and_ext(self,
-                                                  string):
+                                                  string) -> tuple:
         """
         Given a string, return a tuple that contains the base, framespec string, and extension.
 
