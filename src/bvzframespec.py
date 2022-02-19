@@ -785,12 +785,104 @@ class Framespec(object):
 
         return output
 
+    # ------------------------------------------------------------------------------------------------------------------
+    def separate_list_into_lists_of_similar(self,
+                                            files_list) -> list:
+        """
+        Given a list of files that may not be similar (i.e. differ in more than just their frame numbers), return a
+        grouped list of files where each group's list of files only differ by a frame number.
+
+        For example, given a list of files:
+
+            ["/some/file.1.ext",
+             "/some/file.2.ext",
+             "/some/other_file.ext",
+             "/yet/some_other_file.1.ext",
+             "/yet/some_other_file.2.ext"]
+
+        return:
+            [["/some/file.1.ext",
+              "/some/file.2.ext"],
+             ["/some/other_file.ext"],
+             ["/yet/some_other_file.1.ext",
+              "/yet/some_other_file.2.ext"]]
+
+        :param files_list:
+            The list of files that may or may not be similar.
+
+        :return:
+            A list of lists, wherein every sub-list contains similar files.
+        """
+
+        output = list()
+        sorting_dict = dict()
+
+        for file_n in files_list:
+
+            result = re.match(self.frame_number_pattern, file_n)
+
+            if result:
+
+                prefix = list()
+                for prefix_group_number in self.prefix_group_numbers:
+                    prefix.append(result.groups()[prefix_group_number])
+                prefix_str = "".join(prefix)
+
+                postfix = list()
+                for postfix_group_number in self.postfix_group_numbers:
+                    postfix.append(result.groups()[postfix_group_number])
+                postfix_str = "".join(postfix)
+
+                frame_num = int(result.groups()[self.frame_group_num])
+
+            else:
+
+                prefix_str = file_n
+                postfix_str = ""
+
+            try:
+                sorting_dict[(prefix_str, postfix_str)].append(file_n)
+            except KeyError:
+                sorting_dict[(prefix_str, postfix_str)] = [file_n]
+
+        for key, item in sorting_dict.items():
+            output.append(item)
+
+        return output
+
 
 # ======================================================================================================================
 def main():
     """
     Example usages.
     """
+
+    # Split a list of strings into sub-lists that are similar (where similar means the names are identical except for
+    # an integer somewhere in the string.
+    print("\n\n\nExample: Split a dis-similar list of files into sub-lists of similar files.")
+    framespec_obj = Framespec()
+    files_list = ["/some/file.1.ext",
+                  "/some/file.2.ext",
+                  "/some/file.5.ext",
+                  "/some/file.7.ext",
+                  "/some/file.9.ext",
+                  "/different/path/file.8.ext",
+                  "no_frame_number.ext",
+                  "/a/second/set/of/files.1.ext",
+                  "/a/second/set/of/files.2.ext",
+                  "/a/second/set/of/files.3.ext"]
+    print(files_list, "\n")
+    grouped_list = framespec_obj.separate_list_into_lists_of_similar(files_list)
+    for grouped_sub_list in grouped_list:
+        print(grouped_sub_list)
+
+    # Now do a sequenced listing of these files (like in vfx seq command).
+    print("\n\n\nExample: Display the above list of dissimilar files in a condensed, VFX style sequence of files.")
+    for grouped_sub_list in grouped_list:
+        framespec_obj.files_list = grouped_sub_list
+        print(framespec_obj.files_str)
+
+    return
 
     # Convert a list of files to a condensed file string.
     print("\n\n\nExample: Convert a list of files to a condensed file string.")
