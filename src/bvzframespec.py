@@ -184,9 +184,8 @@ class Framespec(object):
         self.two_pass_sorting = two_pass_sorting
 
         self._files_list = list()
-        self._files_str = ""
-
-        self._framespec_list = list()
+        self._condensed_files_str = ""
+        self._frames_list = list()
         self._framespec_str = ""
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -199,8 +198,6 @@ class Framespec(object):
             A list of file names with paths.
         """
 
-        if not self._files_list:
-            self._files_list = self._condensed_file_str_to_file_list(self._files_str)
         return self._files_list
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -219,18 +216,11 @@ class Framespec(object):
 
         assert type(files_p) is list
 
-        self._files_list = files_p
-
-        # Clear out the files_str and the framespec_str because they are no longer up to date
-        self._files_str = ""
-        self._framespec_str = ""
-
-        # Extract the frame numbers as a list and store that in the frames_list
-        self._framespec_list = self._split_file_list_into_prefix_and_frames_list_and_ext(files_p)
+        self._process_files_list(files_p)
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
-    def files_str(self) -> str:
+    def condensed_files_str(self) -> str:
         """
         Returns the file list compressed into a single condensed filename string.
 
@@ -238,14 +228,12 @@ class Framespec(object):
             The file list as a single framespec string.
         """
 
-        if not self._files_str:
-            self._files_str = self._file_list_to_condensed_file_str(self._files_list)
-        return self._files_str
+        return self._condensed_files_str
 
     # ------------------------------------------------------------------------------------------------------------------
-    @files_str.setter
-    def files_str(self,
-                  string):
+    @condensed_files_str.setter
+    def condensed_files_str(self,
+                            string):
         """
         Sets the condensed file name which includes a framespec.
 
@@ -256,18 +244,11 @@ class Framespec(object):
             The file list as a single framespec string.
         """
 
-        self._files_str = string
-
-        # Clear out the files_list and the framespec_list because they are no longer up to date.
-        self._files_list = list()
-        self._framespec_list = list()
-
-        # Extract the framespec from the string and store that
-        _, self._framespec_str, _ = self._split_string_into_base_framespec_and_ext(string)
+        self._process_condensed_files_str(string)
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
-    def framespec_list(self) -> list:
+    def frames_list(self) -> list:
         """
         Return the list of numbers that the framespec refers to. These are just the numbers, and not related to any
         files.
@@ -276,16 +257,12 @@ class Framespec(object):
             A list of integers.
         """
 
-        if not self._framespec_list:
-            if not self._framespec_str:
-                return []
-            self._framespec_list = self._framespec_to_frame_list(self._framespec_str)
-        return self._framespec_list
+        return self._frames_list
 
     # ------------------------------------------------------------------------------------------------------------------
-    @framespec_list.setter
-    def framespec_list(self,
-                       integers):
+    @frames_list.setter
+    def frames_list(self,
+                    integers):
         """
         Property setter for the list of files that the framespec will manage.
 
@@ -302,12 +279,7 @@ class Framespec(object):
             if type(integer) != int:
                 raise ValueError("framespec lists must only consist of integers")
 
-        self._framespec_list = integers
-
-        # Clear out the files_list, the files_str, and framespec_str because they are no longer up to date.
-        self._files_list = list()
-        self._files_str = ""
-        self._framespec_str = ""
+        self._process_integers_list(integers)
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
@@ -319,8 +291,6 @@ class Framespec(object):
             The framespec list as a single framespec string.
         """
 
-        if not self._framespec_str:
-            self._framespec_str = self._frames_list_to_framespec(self._framespec_list)
         return self._framespec_str
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -337,12 +307,22 @@ class Framespec(object):
             The file list as a single framespec string.
         """
 
-        self._framespec_str = string
+        self._process_framespec_str(string)
 
-        # Clear out the files_str, files_list, and framespec_list because they are no longer up to date.
-        self._files_str = ""
-        self._files_list = list()
-        self._framespec_list = list()
+    # ------------------------------------------------------------------------------------------------------------------
+    @property
+    def missing(self) -> list:
+        """
+        Returns the missing frames.
+
+        :return:
+            The framespec list as a single framespec string.
+        """
+
+        if not self._frames_list:
+            return []
+
+        return self._list_missing_integers(self._frames_list)
 
     # ------------------------------------------------------------------------------------------------------------------
     def _convert_grouped_list_into_string(self,
@@ -488,8 +468,8 @@ class Framespec(object):
         return seq_list
 
     # ------------------------------------------------------------------------------------------------------------------
-    def _frames_list_to_framespec(self,
-                                  frames) -> str:
+    def _integers_list_to_framespec(self,
+                                    integers) -> str:
         """
         Given a list of integers, return a framespec that represents those integers in a string form.
 
@@ -502,19 +482,19 @@ class Framespec(object):
 
         return: 1-5x2,22
 
-        :param frames:
+        :param integers:
             A list of integers that we want to compress to a framespec string.
 
         :return:
             A framespec string that represents the list of integers in a compressed format.
         """
 
-        assert type(frames) is list
+        assert type(integers) is list
 
-        if not frames:
+        if not integers:
             return ""
 
-        frame_nums = frames.copy()
+        frame_nums = integers.copy()
         frame_nums.sort()
 
         frame_nums = self._group_list_by_step_size(frame_nums, self.two_pass_sorting)
@@ -523,8 +503,8 @@ class Framespec(object):
         return framespec_str
 
     # ------------------------------------------------------------------------------------------------------------------
-    def _split_file_list_into_prefix_and_frames_list_and_ext(self,
-                                                             files) -> tuple:
+    def _file_list_to_prefix_and_frames_and_postfix(self,
+                                                    files) -> tuple:
         """
         Given a list of files, return a tuple where the first element is the path, the second element is the prefix
         (everything leading up to the frame numbers), the third element is a list of frame numbers, and the final
@@ -629,10 +609,11 @@ class Framespec(object):
         return file_d, prefix_str, frame_nums, postfix_str
 
     # ------------------------------------------------------------------------------------------------------------------
-    def _file_list_to_condensed_file_str(self,
-                                         files) -> str:
+    def _process_files_list(self,
+                            files):
         """
-        Given a list of files, returns a single string where the frame numbers have been converted to a framespec str.
+        Given a list of files, calculates and stores the integers as a list, the integers as a framespec, and the files
+        as a condensed file string.
 
         For example, given:
 
@@ -641,23 +622,121 @@ class Framespec(object):
             /my/file.5.ext
             /my/file.22.ext
 
-        return:
+        store:
+            self._files_list = ["/my/file.1.ext", "/my/file.3.ext", "/my/file.5.ext", "/my/file.22.ext"]
+            self._frames_list = [1, 3, 5, 22]
+            self._framespec_str = "1-5x2,22"
+            self._condensed_files_str = "/my/file.1-5x2,22.ext"
+
+        :param files:
+            A list of file names.
+
+        :return:
+            Nothing.
+        """
+
+        self._files_list = files
+        file_d, prefix_str, self._frames_list, postfix_str = self._file_list_to_prefix_and_frames_and_postfix(files)
+        if self._frames_list:
+            self._framespec_str = self._integers_list_to_framespec(self._frames_list)
+        else:
+            self._framespec_str = ""
+
+        prefix_str = os.path.join(file_d, prefix_str)
+        self._condensed_files_str = f"{prefix_str}{self._framespec_str}{postfix_str}"
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _process_condensed_files_str(self,
+                                     condensed_files_str):
+        """
+        Given a condensed_files_str, stores the framespec, the integers as a list, and the files_list.
+
+        For example, given:
 
             /my/file.1-5x2,22.ext
 
-        :param files:
-            A list of file names. See the _split_file_list_into_prefix_frames_list_and_ext() function for more info.
+        store:
+            self._condensed_files_str = "/my/file.1-5x2,22.ext"
+            self._framespec_str = "1-5x2,22"
+            self._frames_list = [1, 3, 5, 22]
+            self._files_list = ["/my/file.1.ext", "/my/file.3.ext", "/my/file.5.ext", "/my/file.22.ext"]
+
+        :param condensed_files_str:
+            A condensed file string.
 
         :return:
-            A string representing the entire list of files as a single entity.
+            Nothing.
         """
 
-        file_d, prefix_str, frame_nums, postfix_str = self._split_file_list_into_prefix_and_frames_list_and_ext(files)
-        framespec_str = self._frames_list_to_framespec(frame_nums)
+        self._condensed_files_str = condensed_files_str
+        _, self._framespec_str, _ = self._string_to_prefix_and_framespec_and_postfix(condensed_files_str)
+        if self._framespec_str:
+            self._frames_list = self._framespec_to_frame_list(self._framespec_str)
+            self._files_list = self._condensed_file_str_to_file_list(condensed_files_str)
+        else:
+            self._frames_list = list()
+            self._files_list = [condensed_files_str]
 
-        prefix_str = os.path.join(file_d, prefix_str)
+    # ------------------------------------------------------------------------------------------------------------------
+    def _process_integers_list(self,
+                               integers):
+        """
+        Given a list of integers, calculates and stores the integers as a framespec, and sets the files list to an empty
+        list and condensed files_str to blank.
 
-        return f"{prefix_str}{framespec_str}{postfix_str}"
+        For example, given:
+
+            1
+            3
+            5
+            22
+
+        store:
+            self._frames_list = [1, 3, 5, 22]
+            self._framespec_str = "1-5x2,22"
+            self._condensed_files_str = ""
+            self._files_list = []
+
+        :param integers:
+            A list of integers.
+
+        :return:
+            Nothing.
+        """
+
+        self._frames_list = integers
+        self._framespec_str = self._integers_list_to_framespec(self._frames_list)
+        self._condensed_files_str = ""
+        self._files_list = list()
+
+    # ------------------------------------------------------------------------------------------------------------------
+    def _process_framespec_str(self,
+                               framespec_str):
+        """
+        Given a framespec string, calculates and stores the integers as a list, and sets the files list to an empty
+        list and condensed files_str to blank.
+
+        For example, given:
+
+            1-5x2,22
+
+        store:
+            self._framespec_str = "1-5x2,22"
+            self._frames_list = [1, 3, 5, 22]
+            self._condensed_files_str = ""
+            self._files_list = []
+
+        :param framespec_str:
+            A framespec string.
+
+        :return:
+            Nothing.
+        """
+
+        self._framespec_str = framespec_str
+        self._frames_list = self._framespec_to_frame_list(framespec_str)
+        self._condensed_files_str = ""
+        self._files_list = list()
 
     # ------------------------------------------------------------------------------------------------------------------
     def _framespec_to_frame_list(self,
@@ -720,10 +799,10 @@ class Framespec(object):
         return output
 
     # ------------------------------------------------------------------------------------------------------------------
-    def _split_string_into_base_framespec_and_ext(self,
-                                                  string) -> tuple:
+    def _string_to_prefix_and_framespec_and_postfix(self,
+                                                    string) -> tuple:
         """
-        Given a string, return a tuple that contains the base, framespec string, and extension.
+        Given a string, return a tuple that contains the prefix, framespec string, and postfix.
 
         For example:
             given /my/file.1-3,7-11x2.ext
@@ -770,7 +849,7 @@ class Framespec(object):
         if not result:
             return [string]
 
-        base, framespec, ext = self._split_string_into_base_framespec_and_ext(string)
+        base, framespec, ext = self._string_to_prefix_and_framespec_and_postfix(string)
 
         frames = self._framespec_to_frame_list(framespec)
 
@@ -869,7 +948,10 @@ class Framespec(object):
             A list of integers that are missing from the given list.
         """
 
-        return list(set(range(min(integers), max(integers) + 1)) - set(integers))
+        missing = list(set(range(min(integers), max(integers) + 1)) - set(integers))
+        missing.sort()
+
+        return missing
 
 
 # ======================================================================================================================
@@ -901,15 +983,13 @@ def main():
     print("\n\n\nExample: Display the above list of dissimilar files in a condensed, VFX style sequence of files.")
     for grouped_sub_list in grouped_list:
         framespec_obj.files_list = grouped_sub_list
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
 
     # Finally, list the missing frames for each of these sub-lists
     print("\n\n\nExample: Display the above list of dissimilar files in a condensed, VFX style sequence of files.")
     for grouped_sub_list in grouped_list:
         framespec_obj.files_list = grouped_sub_list
-        print(framespec_obj.files_str)
-
-    return
+        print(framespec_obj.condensed_files_str, "missing:", framespec_obj.missing)
 
     # Convert a list of files to a condensed file string.
     print("\n\n\nExample: Convert a list of files to a condensed file string.")
@@ -921,7 +1001,7 @@ def main():
                                     "/some/file.7.ext",
                                     "/some/file.9.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -935,7 +1015,7 @@ def main():
                                     "/some/file.7.ext",
                                     "/some/file.9.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -945,7 +1025,7 @@ def main():
     try:
         framespec_obj.files_list = ["/some/file.1.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -955,7 +1035,7 @@ def main():
     try:
         framespec_obj.files_list = ["/some/file.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -969,7 +1049,7 @@ def main():
                                     "file.7.ext",
                                     "file.9.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -983,7 +1063,7 @@ def main():
                                     "7.ext",
                                     "9.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -997,7 +1077,7 @@ def main():
                                     "file.7",
                                     "file.9"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -1011,7 +1091,7 @@ def main():
                                     "7",
                                     "9"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -1025,7 +1105,7 @@ def main():
                                     "file.100.7.ext",
                                     "file.100.9.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -1041,7 +1121,7 @@ def main():
                                     "file.7.ext",
                                     "file.9.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -1063,7 +1143,7 @@ def main():
                                     "file.#7.ext",
                                     "file.#9.ext"]
         print(framespec_obj.files_list)
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
     except ValueError as e:
         print(e)
 
@@ -1083,7 +1163,7 @@ def main():
                       "file.@9.ext"]
         print(files_list)
         framespec_obj.files_list = files_list
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
 
         print("\nHere is another list that does not conform to the pattern (it is missing the @ symbol).")
         print("This leads to an error message because the pattern does not see frame numbers, but instead sees")
@@ -1095,7 +1175,7 @@ def main():
                       "file.9.ext"]
         print(files_list)
         framespec_obj.files_list = files_list
-        print(framespec_obj.files_str)
+        print(framespec_obj.condensed_files_str)
 
     except ValueError as e:
         print(e)
@@ -1104,8 +1184,8 @@ def main():
     print("\n\n\nExample: Convert a list of integers to a framespec string.")
     framespec_obj = Framespec()
     try:
-        framespec_obj.framespec_list = [1, 2, 5, 7, 9]
-        print(framespec_obj.framespec_list)
+        framespec_obj.frames_list = [1, 2, 5, 7, 9]
+        print(framespec_obj.frames_list)
         print(framespec_obj.framespec_str)
     except ValueError as e:
         print(e)
@@ -1116,7 +1196,7 @@ def main():
     try:
         framespec_obj.framespec_str = "1-2,5-9x2"
         print(framespec_obj.framespec_str)
-        print(framespec_obj.framespec_list)
+        print(framespec_obj.frames_list)
     except ValueError as e:
         print(e)
 
@@ -1126,7 +1206,7 @@ def main():
     try:
         framespec_obj.framespec_str = "-2--1,5-9x2"
         print(framespec_obj.framespec_str)
-        print(framespec_obj.framespec_list)
+        print(framespec_obj.frames_list)
     except ValueError as e:
         print(e)
 
@@ -1136,7 +1216,7 @@ def main():
     try:
         framespec_obj.framespec_str = "-2-1,5-9x2"
         print(framespec_obj.framespec_str)
-        print(framespec_obj.framespec_list)
+        print(framespec_obj.frames_list)
     except ValueError as e:
         print(e)
 
@@ -1144,8 +1224,8 @@ def main():
     print("\n\n\nExample: Convert a condensed file string to a list of files.")
     framespec_obj = Framespec()
     try:
-        framespec_obj.files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
-        print(framespec_obj.files_str, "\n")
+        framespec_obj.condensed_files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
+        print(framespec_obj.condensed_files_str, "\n")
         print("\n".join(framespec_obj.files_list))
     except ValueError as e:
         print(e)
@@ -1154,8 +1234,8 @@ def main():
     print("\n\n\nExample: Convert a condensed file string to a list of files, but use 5 digits for padding.")
     framespec_obj = Framespec(padding=5)
     try:
-        framespec_obj.files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
-        print(framespec_obj.files_str, "\n")
+        framespec_obj.condensed_files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
+        print(framespec_obj.condensed_files_str, "\n")
         print("\n".join(framespec_obj.files_list))
     except ValueError as e:
         print(e)
@@ -1164,8 +1244,8 @@ def main():
     print("\n\n\nExample: Convert a condensed file string to a list of files, but use an insufficient padding of 2.")
     framespec_obj = Framespec(padding=2)
     try:
-        framespec_obj.files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
-        print(framespec_obj.files_str, "\n")
+        framespec_obj.condensed_files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
+        print(framespec_obj.condensed_files_str, "\n")
         print("\n".join(framespec_obj.files_list))
     except ValueError as e:
         print(e)
@@ -1174,8 +1254,8 @@ def main():
     print("\n\n\nExample: Convert a condensed file string to a list of files, but use no padding.")
     framespec_obj = Framespec(padding=0)
     try:
-        framespec_obj.files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
-        print(framespec_obj.files_str, "\n")
+        framespec_obj.condensed_files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
+        print(framespec_obj.condensed_files_str, "\n")
         print("\n".join(framespec_obj.files_list))
     except ValueError as e:
         print(e)
@@ -1184,8 +1264,8 @@ def main():
     print("\n\n\nExample: Convert a condensed file string to a list of files, but use a colon (:) as a step delimiter.")
     framespec_obj = Framespec(step_delimiter=":")
     try:
-        framespec_obj.files_str = "/some/files.1-5:2,5-100:9,134,139,200-201,203-220:3.exr"
-        print(framespec_obj.files_str, "\n")
+        framespec_obj.condensed_files_str = "/some/files.1-5:2,5-100:9,134,139,200-201,203-220:3.exr"
+        print(framespec_obj.condensed_files_str, "\n")
         print("\n".join(framespec_obj.files_list))
     except ValueError as e:
         print(e)
@@ -1194,30 +1274,30 @@ def main():
     print("\n\n\nExample: Convert a condensed file string to a list of frame numbers.")
     framespec_obj = Framespec(padding=5)
     try:
-        framespec_obj.files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
-        print(framespec_obj.files_str)
+        framespec_obj.condensed_files_str = "/some/files.1-5x2,5-100x9,134,139,200-201,203-220x3.exr"
+        print(framespec_obj.condensed_files_str)
         print("-" * 80)
-        print(framespec_obj.framespec_list)
+        print(framespec_obj.frames_list)
     except ValueError as e:
         print(e)
 
     # String does not contain a framespec.
     print("\n\n\nExample: String does not contain a framespec.")
     framespec_obj = Framespec()
-    try:
-        framespec_obj.files_str = "/some/files.exr"
-        print(framespec_obj.files_str)
-        print("-" * 80)
-        print(framespec_obj.files_list)
-    except ValueError as e:
-        print(e)
+    # try:
+    framespec_obj.condensed_files_str = "/some/files.exr"
+    print(framespec_obj.condensed_files_str)
+    print("-" * 80)
+    print(framespec_obj.files_list)
+    # except ValueError as e:
+    #     print(e)
 
     # Framespec is a single frame.
     print("\n\n\nExample: Framespec is a single frame.")
     framespec_obj = Framespec()
     try:
-        framespec_obj.files_str = "/some/files.1.exr"
-        print(framespec_obj.files_str)
+        framespec_obj.condensed_files_str = "/some/files.1.exr"
+        print(framespec_obj.condensed_files_str)
         print("-" * 80)
         print(framespec_obj.files_list)
     except ValueError as e:

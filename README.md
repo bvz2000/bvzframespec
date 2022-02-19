@@ -103,7 +103,7 @@ fs.files_list = ["/some/file.1.ext",
                  "/some/file.7.ext",
                  "/some/file.9.ext"]
 
-print(fs.files_str)
+print(fs.condensed_files_str)
 ```
 
 This would print: 
@@ -113,7 +113,7 @@ This would print:
 To do this in reverse, assume you had a condensed file string such as "/my/files.100-150x10.ext". You would simply pass this string to the framespec object and then access the files list parameter.:
 
 ```python
-fs.files_str = "/my/files.100-150x10.ext"
+fs.condensed_files_str = "/my/files.100-150x10.ext"
 
 print(fs.framespec_str)
 ```
