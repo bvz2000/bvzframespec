@@ -850,6 +850,27 @@ class Framespec(object):
 
         return output
 
+    # ------------------------------------------------------------------------------------------------------------------
+    @staticmethod
+    def _list_missing_integers(integers):
+        """
+        Given a list of integers, return a list of any integers between the lowest and highest value that are missing.
+
+        For example, given the list:
+            1, 2, 4, 6
+
+        This function would return:
+            3, 5
+
+        :param integers:
+            A list of integers.
+
+        :return:
+            A list of integers that are missing from the given list.
+        """
+
+        return list(set(range(min(integers), max(integers) + 1)) - set(integers))
+
 
 # ======================================================================================================================
 def main():
@@ -877,6 +898,12 @@ def main():
         print(grouped_sub_list)
 
     # Now do a sequenced listing of these files (like in vfx seq command).
+    print("\n\n\nExample: Display the above list of dissimilar files in a condensed, VFX style sequence of files.")
+    for grouped_sub_list in grouped_list:
+        framespec_obj.files_list = grouped_sub_list
+        print(framespec_obj.files_str)
+
+    # Finally, list the missing frames for each of these sub-lists
     print("\n\n\nExample: Display the above list of dissimilar files in a condensed, VFX style sequence of files.")
     for grouped_sub_list in grouped_list:
         framespec_obj.files_list = grouped_sub_list
