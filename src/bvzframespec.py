@@ -159,7 +159,7 @@ class Framespec(object):
         else:
             self.frame_number_pattern = frame_number_pattern
 
-        if framespec_pattern is None:
+        if framespec_pattern is None:  # TODO: I need to escape the step_delimiter if it is a reserved regex character
             self.framespec_pattern = r'(?:-?\d+(?:-?-\d+)?(?:' + step_delimiter + '\d+)?(?:,)?)+'
         else:
             self.framespec_pattern = framespec_pattern
