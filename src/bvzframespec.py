@@ -159,7 +159,8 @@ class Framespec(object):
         else:
             self.frame_number_pattern = frame_number_pattern
 
-        if framespec_pattern is None:  # TODO: I need to escape the step_delimiter if it is a reserved regex character
+        # TODO: Do I need to escape the step_delimiter if it is a reserved regex character?
+        if framespec_pattern is None:
             self.framespec_pattern = r'(?:-?\d+(?:-?-\d+)?(?:' + step_delimiter + '\d+)?(?:,)?)+'
         else:
             self.framespec_pattern = framespec_pattern
@@ -912,17 +913,18 @@ class Framespec(object):
                     postfix.append(result.groups()[postfix_group_number])
                 postfix_str = "".join(postfix)
 
-                frame_num = int(result.groups()[self.frame_group_num])
+                frame_num = True
 
             else:
 
                 prefix_str = file_n
                 postfix_str = ""
+                frame_num = False
 
             try:
-                sorting_dict[(prefix_str, postfix_str)].append(file_n)
+                sorting_dict[(prefix_str, frame_num, postfix_str)].append(file_n)
             except KeyError:
-                sorting_dict[(prefix_str, postfix_str)] = [file_n]
+                sorting_dict[(prefix_str, frame_num, postfix_str)] = [file_n]
 
         for key, item in sorting_dict.items():
             output.append(item)
