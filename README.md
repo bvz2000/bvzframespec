@@ -4,6 +4,8 @@
 
 A library responsible for converting numbered lists of files to a "condensed string" and back again.
 
+*Requires Python 3.10 or greater.*
+
 ---
 
 # Basic Examples:
