@@ -54,7 +54,7 @@ This feature also works in reverse. Given:
 /my/file.12-18x2,100-150x10,312.ext
 ```
 
-return
+return:
 
 ```
 /my/file.12.ext
