@@ -467,26 +467,31 @@ class Framespec(object):
             # Look at every chunk except the last one
             for i, curr_chunk in enumerate(seq_list[:-1]):
 
-                # TODO: change this nesting so that it is flat (invert the if statements to use 'continue')
                 # Only deal with chunks that have more than one element
-                if len(curr_chunk) > 1:
-                    next_chunk = seq_list[i + 1]
-                    next_chunk_len = len(next_chunk)
+                if len(curr_chunk) <= 0:
+                    continue
 
-                    # Only move items if the next chunk is longer than the current chunk
-                    if next_chunk_len > len(curr_chunk):
-                        curr_chunk_last_value = curr_chunk[-1]
-                        next_chunk_first_value = next_chunk[0]
-                        curr_to_next_diff = next_chunk_first_value - curr_chunk_last_value
+                next_chunk = seq_list[i + 1]
+                next_chunk_len = len(next_chunk)
 
-                        # No need to worry about IndexErrors because the next chunk is always > than 1 element long
-                        next_chunk_step_size = next_chunk[1] - next_chunk[0]
+                # Only move items if the next chunk is longer than the current chunk
+                if next_chunk_len <= len(curr_chunk):
+                    continue
 
-                        # If the step size is the same it means this element probably should be in the next section.
-                        if curr_to_next_diff == next_chunk_step_size:
-                            value_to_move = curr_chunk[-1]
-                            seq_list[i] = seq_list[i][:-1]
-                            seq_list[i + 1] = [value_to_move] + seq_list[i + 1]
+                curr_chunk_last_value = curr_chunk[-1]
+                next_chunk_first_value = next_chunk[0]
+                curr_to_next_diff = next_chunk_first_value - curr_chunk_last_value
+
+                # No need to worry about IndexErrors because the next chunk is always > than 1 element long
+                next_chunk_step_size = next_chunk[1] - next_chunk[0]
+
+                # If the step size is the same it means this element probably should be in the next section.
+                if curr_to_next_diff != next_chunk_step_size:
+                    continue
+
+                value_to_move = curr_chunk[-1]
+                seq_list[i] = seq_list[i][:-1]
+                seq_list[i + 1] = [value_to_move] + seq_list[i + 1]
 
         return seq_list
 
