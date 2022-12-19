@@ -184,7 +184,7 @@ class Framespec(object):
     @staticmethod
     def _process_step_delimiter(step_delimiter: str) -> str:
         """
-        Adds an escape character to the step delimiter if it is a reserved regex character.
+        Adds an escape character(s) to the step delimiter(s) if it is a reserved regex character.
 
         :param step_delimiter:
             The step delimiter character(s)
@@ -192,8 +192,16 @@ class Framespec(object):
         :return:
             The step delimiter character(s) with optional escape characters should they be needed.
         """
-        # TODO: Not yet implemented!
-        return step_delimiter
+
+        special_chars = [".", "+", "*", "?", "^", "$", "(", ")", "[", "]", "{", "}", "|"]
+        output = ""
+
+        for char in step_delimiter:
+            if char in special_chars:
+                char = "\\" + char
+            output += char
+
+        return output
 
     # ------------------------------------------------------------------------------------------------------------------
     @property
