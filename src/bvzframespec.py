@@ -382,9 +382,9 @@ class Framespec(object):
 
         return ",".join(grouped_list)
 
-    # ----------------------------------------------------------------------------------------------------------------------
-    @staticmethod
-    def _group_list_by_step_size(integers: list[int],
+    # ------------------------------------------------------------------------------------------------------------------
+    def _group_list_by_step_size(self,
+                                 integers: list[int],
                                  post_cleanup: bool = True) -> list:
         """
         Given a list of integers, return the same list, but grouped into sub-lists by step size.
@@ -461,37 +461,55 @@ class Framespec(object):
         if curr_sub_list:
             seq_list.append(curr_sub_list)
 
-        # TODO: separate this into its own function
         if post_cleanup and len(seq_list) > 1:
+            seq_list = self._post_cleanup(seq_list)
 
-            # Look at every chunk except the last one
-            for i, curr_chunk in enumerate(seq_list[:-1]):
+        return seq_list
 
-                # Only deal with chunks that have more than one element
-                if len(curr_chunk) <= 0:
-                    continue
+    # ----------------------------------------------------------------------------------------------------------------------
+    @staticmethod
+    def _post_cleanup(seq_list: list) -> list:
+        """
+        Perform a cleanup of the sequence list. For example, if the original sequence list was [[1, 2], [4, 6, 8, 10]]
+        this function will readjust it so that the sequence list is [[1], [2, 4, 6, 8, 10]]. The difference is that the
+        2 is shifted to the second section where it makes more sense.
 
-                next_chunk = seq_list[i + 1]
-                next_chunk_len = len(next_chunk)
+        :param seq_list:
+            A list of lists of integers. Example: [[1, 2], [4, 6, 8, 10]]
 
-                # Only move items if the next chunk is longer than the current chunk
-                if next_chunk_len <= len(curr_chunk):
-                    continue
+        :return:
+            The same list, but with some numbers shifted from one section to another if they make more sense in
+            the new section.
+        """
 
-                curr_chunk_last_value = curr_chunk[-1]
-                next_chunk_first_value = next_chunk[0]
-                curr_to_next_diff = next_chunk_first_value - curr_chunk_last_value
+        # Look at every chunk except the last one
+        for i, curr_chunk in enumerate(seq_list[:-1]):
 
-                # No need to worry about IndexErrors because the next chunk is always > than 1 element long
-                next_chunk_step_size = next_chunk[1] - next_chunk[0]
+            # Only deal with chunks that have more than one element
+            if len(curr_chunk) <= 0:
+                continue
 
-                # If the step size is the same it means this element probably should be in the next section.
-                if curr_to_next_diff != next_chunk_step_size:
-                    continue
+            next_chunk = seq_list[i + 1]
+            next_chunk_len = len(next_chunk)
 
-                value_to_move = curr_chunk[-1]
-                seq_list[i] = seq_list[i][:-1]
-                seq_list[i + 1] = [value_to_move] + seq_list[i + 1]
+            # Only move items if the next chunk is longer than the current chunk
+            if next_chunk_len <= len(curr_chunk):
+                continue
+
+            curr_chunk_last_value = curr_chunk[-1]
+            next_chunk_first_value = next_chunk[0]
+            curr_to_next_diff = next_chunk_first_value - curr_chunk_last_value
+
+            # No need to worry about IndexErrors because the next chunk is always > than 1 element long
+            next_chunk_step_size = next_chunk[1] - next_chunk[0]
+
+            # If the step size is the same it means this element probably should be in the next section.
+            if curr_to_next_diff != next_chunk_step_size:
+                continue
+
+            value_to_move = curr_chunk[-1]
+            seq_list[i] = seq_list[i][:-1]
+            seq_list[i + 1] = [value_to_move] + seq_list[i + 1]
 
         return seq_list
 
